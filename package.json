@@ -2,7 +2,7 @@
 	"name": "perplexapi",
 	"private": true,
 	"scripts": {
-		"start": "bun run make.ts",
+		"start": "bun run main.ts",
 		"typecheck": "tsc --noEmit"
 	},
 	"devDependencies": {
