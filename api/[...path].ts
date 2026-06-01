@@ -36,7 +36,8 @@ type OpenAIErrorType =
 
 type PerplexityEvent = {
 	final_sse_message?: boolean;
-	text?: string;
+	text?: unknown;
+	error?: unknown;
 };
 
 const PERPLEXITY_ENDPOINT = "https://www.perplexity.ai/rest/sse/perplexity_ask";
@@ -152,7 +153,7 @@ export async function handleRequest(request: Request): Promise<Response> {
 }
 
 function authorize(request: Request): Response | null {
-	const key = env("KEY");
+	const key = cleanEnvValue(env("KEY"));
 	if (!key) {
 		return openAIError("Missing required environment variable KEY.", "server_error", 500);
 	}
@@ -338,6 +339,10 @@ async function streamChatCompletion({
 }
 
 async function askPerplexity(query: string): Promise<string> {
+	if (!cleanEnvValue(env("PPLX_COOKIE"))) {
+		throw new Error("Missing required environment variable PPLX_COOKIE.");
+	}
+
 	const response = await fetch(PERPLEXITY_ENDPOINT, {
 		method: "POST",
 		headers: perplexityHeaders(),
@@ -356,6 +361,8 @@ async function askPerplexity(query: string): Promise<string> {
 }
 
 function perplexityHeaders(): Record<string, string> {
+	const pplxCookie = cleanEnvValue(env("PPLX_COOKIE"));
+
 	const headers: Record<string, string> = {
 		accept: "text/event-stream",
 		"accept-language": "en-US,en;q=0.9",
@@ -365,7 +372,7 @@ function perplexityHeaders(): Record<string, string> {
 		pragma: "no-cache",
 		referer: "https://www.perplexity.ai/",
 		"user-agent":
-			env("USER_AGENT") ??
+			cleanEnvValue(env("USER_AGENT")) ??
 			"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36",
 		"x-perplexity-request-endpoint": PERPLEXITY_ENDPOINT,
 		"x-perplexity-request-reason": "ask-query-state-provider",
@@ -373,8 +380,8 @@ function perplexityHeaders(): Record<string, string> {
 		"x-request-id": crypto.randomUUID(),
 	};
 
-	if (env("PPLX_COOKIE")) {
-		headers.cookie = env("PPLX_COOKIE") ?? "";
+	if (pplxCookie) {
+		headers.cookie = pplxCookie;
 	}
 
 	return headers;
@@ -392,7 +399,8 @@ function perplexityBody(query: string): unknown {
 			sources: ["web"],
 			frontend_uuid: frontendUuid,
 			mode: "copilot",
-			model_preference: env("PPLX_MODEL_PREFERENCE") ?? DEFAULT_PPLX_MODEL,
+			model_preference:
+				cleanEnvValue(env("PPLX_MODEL_PREFERENCE")) ?? DEFAULT_PPLX_MODEL,
 			is_related_query: false,
 			is_sponsored: false,
 			frontend_context_uuid: crypto.randomUUID(),
@@ -508,7 +516,11 @@ function extractAnswerFromBuffer(buffer: string): string | null {
 			continue;
 		}
 
-		if (event.final_sse_message === true && event.text) {
+		if (event.error) {
+			throw new Error(`Perplexity returned an error: ${stringifyError(event.error)}`);
+		}
+
+		if (event.final_sse_message === true && typeof event.text === "string") {
 			return extractMarkdown(event.text);
 		}
 	}
@@ -517,7 +529,17 @@ function extractAnswerFromBuffer(buffer: string): string | null {
 }
 
 function extractMarkdown(input: string): string {
-	const steps = JSON.parse(input) as unknown;
+	let steps: unknown;
+
+	try {
+		steps = JSON.parse(input) as unknown;
+	} catch (error) {
+		if (/^error\b/i.test(input)) {
+			throw new Error(`Perplexity returned an error: ${input}`);
+		}
+
+		throw error;
+	}
 
 	if (!Array.isArray(steps)) {
 		throw new TypeError(
@@ -623,10 +645,42 @@ function errorMessage(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
 }
 
+function stringifyError(error: unknown): string {
+	if (typeof error === "string") {
+		return error;
+	}
+
+	try {
+		return JSON.stringify(error);
+	} catch {
+		return String(error);
+	}
+}
+
 function env(name: string): string | undefined {
 	const runtime = globalThis as typeof globalThis & {
 		process?: { env?: Record<string, string | undefined> };
 	};
 
 	return runtime.process?.env?.[name];
+}
+
+function cleanEnvValue(value: string | undefined): string | undefined {
+	if (!value) {
+		return undefined;
+	}
+
+	const firstLine = value.trim().split(/\r?\n/, 1)[0]?.trim();
+	if (!firstLine) {
+		return undefined;
+	}
+
+	if (
+		(firstLine.startsWith("'") && firstLine.endsWith("'")) ||
+		(firstLine.startsWith('"') && firstLine.endsWith('"'))
+	) {
+		return firstLine.slice(1, -1);
+	}
+
+	return firstLine;
 }
