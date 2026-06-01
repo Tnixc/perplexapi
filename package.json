@@ -1,14 +1,14 @@
 {
-  "name": "perplexapi",
-  "private": true,
-  "scripts": {
-    "start": "bun run make.ts",
-    "typecheck": "tsc --noEmit"
-  },
-  "devDependencies": {
-    "@types/bun": "latest"
-  },
-  "peerDependencies": {
-    "typescript": "^5"
-  }
+	"name": "perplexapi",
+	"private": true,
+	"scripts": {
+		"start": "bun run make.ts",
+		"typecheck": "tsc --noEmit"
+	},
+	"devDependencies": {
+		"@types/bun": "latest"
+	},
+	"peerDependencies": {
+		"typescript": "^5"
+	}
 }
