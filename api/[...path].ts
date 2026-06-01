@@ -44,6 +44,10 @@ const DEFAULT_MODEL = "perplexity-online";
 const DEFAULT_PPLX_MODEL = "gpt54_thinking";
 
 export default async function handler(request: Request): Promise<Response> {
+	return handleRequest(request);
+}
+
+export async function handleRequest(request: Request): Promise<Response> {
 	const url = new URL(request.url);
 	const targetPath = normalizePath(url.pathname);
 

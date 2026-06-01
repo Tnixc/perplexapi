@@ -45,4 +45,16 @@ curl https://your-vercel-app.vercel.app/v1/chat/completions \
   }'
 ```
 
+The explicit Vercel API path also works:
+
+```bash
+curl https://your-vercel-app.vercel.app/api/v1/chat/completions \
+  -H 'Authorization: Bearer client_api_key' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "model": "perplexity-online",
+    "messages": [{ "role": "user", "content": "hello" }]
+  }'
+```
+
 This project was created using `bun init` in bun v1.3.14. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.
