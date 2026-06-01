@@ -29,10 +29,11 @@ Set these environment variables in Vercel:
 
 ```bash
 KEY='client_api_key'
-CALLER_URL='https://your-caller.example.com'
+PPLX_COOKIE='your_perplexity_cookie'
 ```
 
-Then call the proxy with the same OpenAI-compatible interface:
+Then call Vercel directly with the same OpenAI-compatible interface. Vercel checks
+`KEY`, then calls Perplexity:
 
 ```bash
 curl https://your-vercel-app.vercel.app/v1/chat/completions \
